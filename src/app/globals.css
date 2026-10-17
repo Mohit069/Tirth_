@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* Warm temple palette: cream paper, deep saffron, and one colour per seva. */
+@theme {
+  --font-sans: var(--font-devanagari), "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #fbf6ee;
+  --color-card: #ffffff;
+  --color-ink: #231c17;
+  --color-muted: #6b5d52;
+  --color-line: #ebe1d4;
+  --color-line-strong: #d6c6b3;
+
+  --color-brand: #b4410e;
+  --color-brand-strong: #8e3108;
+  --color-brand-soft: #fdf1e7;
+  --color-brand-tint: #f8dcc6;
+  --color-gold: #c98a1c;
+
+  --color-ok: #1b7f3b;
+  --color-ok-strong: #14652e;
+  --color-ok-soft: #e6f4ea;
+
+  --color-danger: #b42318;
+  --color-danger-soft: #fdeceb;
+
+  --color-nashta: #9a4d06;
+  --color-nashta-soft: #fdf0d5;
+  --color-bhojan: #17773a;
+  --color-bhojan-soft: #e3f5e8;
+  --color-stay: #2546b0;
+  --color-stay-soft: #e5ebfb;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 3px solid #e9a273;
+  outline-offset: 2px;
+}
+
+/* Number inputs: we draw our own − / + buttons. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+dialog::backdrop {
+  background: rgb(35 28 23 / 0.55);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ticket edge for the token card. */
+.ticket-cut {
+  background-image: radial-gradient(circle at 0 50%, var(--color-paper) 11px, transparent 12px),
+    radial-gradient(circle at 100% 50%, var(--color-paper) 11px, transparent 12px);
+}
+
+/* Keep the poster's colours when printing (browsers drop backgrounds by default). */
+.qr-poster,
+.qr-poster * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

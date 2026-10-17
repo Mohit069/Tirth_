@@ -1,0 +1,140 @@
+// Yatri entry app – Shri Shankheshwar Parshwanath Bafna Jain Tirth
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EntryStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum EnteredBy {
+  YATRI
+  STAFF
+}
+
+model Entry {
+  /// Random id generated on the phone. Also used as the private token-page link
+  /// and to make a repeated submit return the same token instead of a new one.
+  id        String   @id @db.Uuid
+  /// Human token number shown as #0427. Postgres sequence: never reused.
+  tokenNo   Int      @unique @default(autoincrement())
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  name        String
+  mobile      String @db.VarChar(10)
+  city        String
+  men         Int
+  women       Int
+  children    Int
+  totalPeople Int
+
+  wantsNashta Boolean
+  wantsBhojan Boolean
+  wantsStay   Boolean
+
+  mealDate   DateTime? @db.Date
+  mealPeople Int?
+
+  checkInDate    DateTime? @db.Date
+  checkOutDate   DateTime? @db.Date
+  /// AADHAAR | VOTER_ID | DRIVING_LICENCE | PASSPORT | OTHER
+  idType         String?
+  /// Only the last 4 characters are ever stored, e.g. XXXX-XXXX-1234
+  idNumberMasked String?
+  /// CAR | JEEP | BUS | OTHER (null = no vehicle)
+  vehicleType    String?
+  vehicleNumber  String?
+
+  status       EntryStatus @default(ACTIVE)
+  cancelReason String?
+  cancelledAt  DateTime?   @db.Timestamptz(3)
+  enteredBy    EnteredBy   @default(YATRI)
+  /// Language the form was filled in (hi | en); the yatri's WhatsApp message uses it.
+  lang         String      @default("hi") @db.VarChar(2)
+  /// The yatri added a photo of the ID (optional, stays only).
+  hasIdPhoto   Boolean     @default(false)
+  /// Google Drive link of that photo, once the Google Sheet job has saved it there.
+  idPhotoUrl   String?
+
+  jobs    Job[]
+  idPhoto IdPhoto?
+
+  // Date-range screens (staff "today", dashboard, export) read by createdAt.
+  @@index([createdAt])
+  // Exact mobile lookups.
+  @@index([mobile])
+  // "Staying now": only stays that end today or later.
+  @@index([checkOutDate])
+  // Search by part of a name or mobile number stays fast with millions of rows
+  // (trigram indexes; the pg_trgm extension is created in the migration).
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Entry_name_trgm_idx")
+  @@index([mobile(ops: raw("gin_trgm_ops"))], type: Gin, map: "Entry_mobile_trgm_idx")
+}
+
+enum JobKind {
+  /// Token photo to the yatri's WhatsApp
+  WHATSAPP_YATRI
+  /// New-entry alert to the trust's representative number(s)
+  WHATSAPP_TEAM
+  /// New row in the Google Sheet
+  SHEET_ADD
+  /// Mark the Google Sheet row as cancelled
+  SHEET_CANCEL
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  SKIPPED
+}
+
+/// Work that talks to WhatsApp or Google for an entry. Saved together with the entry and
+/// retried until it succeeds, so a slow or failed outside service never loses a message or row.
+model Job {
+  id        Int       @id @default(autoincrement())
+  entryId   String    @db.Uuid
+  entry     Entry     @relation(fields: [entryId], references: [id])
+  kind      JobKind
+  /// WhatsApp number with country code for WhatsApp jobs; "" for sheet jobs.
+  target    String    @default("") @db.VarChar(20)
+  status    JobStatus @default(PENDING)
+  attempts  Int       @default(0)
+  nextTryAt DateTime  @default(now()) @db.Timestamptz(3)
+  lockedAt  DateTime? @db.Timestamptz(3)
+  doneAt    DateTime? @db.Timestamptz(3)
+  /// WhatsApp message id or sheet range, for tracing.
+  ref       String?   @db.VarChar(200)
+  lastError String?   @db.VarChar(500)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([entryId, kind, target])
+  // Picking the next jobs to run, and counting failed ones for the admin screen.
+  @@index([status, nextTryAt])
+}
+
+/// The ID photo (a compressed JPEG) until it is saved in the trust's Google Drive; then the row
+/// is deleted and Entry.idPhotoUrl links to Drive. Without the Google Sheet it stays here.
+model IdPhoto {
+  entryId   String   @id @db.Uuid
+  entry     Entry    @relation(fields: [entryId], references: [id])
+  mime      String   @db.VarChar(30)
+  data      Bytes
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+/// Wrong PIN / password attempts, used to slow down guessing.
+model LoginAttempt {
+  key         String   @id
+  failures    Int      @default(0)
+  windowStart DateTime @default(now()) @db.Timestamptz(3)
+}
